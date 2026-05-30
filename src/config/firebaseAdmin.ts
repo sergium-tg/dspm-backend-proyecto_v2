@@ -1,45 +1,31 @@
 import * as admin from 'firebase-admin';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// Configuración de Firebase usando variables de entorno para Render
-let serviceAccount;
+let serviceAccount: any;
 
 try {
-  // En producción (Render), usar variables de entorno
-  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-    
-    // Manejar diferentes formatos de la clave privada
-    // Si la clave tiene \n literales, reemplazarlos por saltos de línea
-    if (privateKey.includes('\\n')) {
-      privateKey = privateKey.replace(/\\n/g, '\n');
+  // Primero intentar cargar desde variable de entorno (para Render/producción)
+  const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (serviceAccountEnv) {
+    try {
+      serviceAccount = JSON.parse(serviceAccountEnv);
+      console.log('Firebase Admin inicializado desde variable de entorno');
+    } catch (parseError) {
+      console.error('Error al parsear FIREBASE_SERVICE_ACCOUNT_KEY:', parseError);
+      throw parseError;
     }
-    
-    console.log('Firebase config loaded from environment variables');
-    console.log('Project ID:', process.env.FIREBASE_PROJECT_ID);
-    console.log('Client email:', process.env.FIREBASE_CLIENT_EMAIL);
-    
-    serviceAccount = {
-      type: 'service_account',
-      project_id: process.env.FIREBASE_PROJECT_ID,
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || '',
-      private_key: privateKey,
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: process.env.FIREBASE_CLIENT_ID || '',
-      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-      token_uri: 'https://oauth2.googleapis.com/token',
-      auth_provider_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || '',
-      universe_domain: 'googleapis.com'
-    };
   } else {
-    // En desarrollo local, usar archivo JSON si existe
-    const fs = require('fs');
-    const path = require('path');
+    // Si no hay variable de entorno, intentar cargar desde archivo (para desarrollo local)
     const serviceAccountPath = path.join(__dirname, '..', '..', 'serviceAccountKey.json');
+    console.log('Intentando cargar serviceAccountKey.json desde:', serviceAccountPath);
     
     if (fs.existsSync(serviceAccountPath)) {
-      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      const serviceAccountFile = fs.readFileSync(serviceAccountPath, 'utf8');
+      serviceAccount = JSON.parse(serviceAccountFile);
+      console.log('Firebase Admin inicializado desde archivo local');
     } else {
-      throw new Error('No se encontró serviceAccountKey.json y no hay variables de entorno configuradas');
+      throw new Error(`Archivo de credenciales no encontrado en: ${serviceAccountPath}`);
     }
   }
 
@@ -48,6 +34,7 @@ try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
+    console.log('Firebase Admin inicializado correctamente');
   }
 } catch (error) {
   console.error("Error crítico: No se pudo inicializar Firebase Admin");
