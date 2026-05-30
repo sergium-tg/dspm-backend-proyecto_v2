@@ -8,5 +8,6 @@ const router = (0, express_1.Router)();
 router.post('/', usuarioController_1.crearUsuario);
 // GET: Perfil del usuario autenticado
 router.get('/perfil', authMiddleware_1.authMiddleware, usuarioController_1.obtenerPerfil);
+// PATCH: Actualizar perfil del usuario autenticado
+router.patch('/perfil', authMiddleware_1.authMiddleware, usuarioController_1.actualizarPerfil);
 exports.default = router;
-//# sourceMappingURL=usuarioRoutes.js.map

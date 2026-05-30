@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.eliminarAsignatura = exports.obtenerAsignaturas = exports.crearAsignatura = void 0;
+exports.actualizarAsignatura = exports.eliminarAsignatura = exports.obtenerAsignaturaPorId = exports.obtenerAsignaturas = exports.crearAsignatura = void 0;
 const firebaseAdmin_1 = require("../config/firebaseAdmin");
 const paramString = (value) => Array.isArray(value) ? value[0] : value;
 const asignaturasRef = (uid) => firebaseAdmin_1.db.collection('usuarios').doc(uid).collection('asignaturas');
@@ -23,23 +23,22 @@ const crearAsignatura = async (req, res) => {
             res.status(401).json({ error: 'Usuario no autenticado' });
             return;
         }
-        const { nombre, profesor, periodo } = req.body;
-        if (!nombre || !profesor || !periodo) {
-            res.status(400).json({ error: 'nombre, profesor y periodo son obligatorios' });
+        const { descripcion, creditos } = req.body;
+        if (!descripcion) {
+            res.status(400).json({ error: 'La descripción es obligatoria' });
             return;
         }
-        const docRef = await asignaturasRef(uid).add({
-            nombre,
-            profesor,
-            periodo,
-            promedioActual: 0,
-        });
+        const creditosNum = creditos !== undefined ? Number(creditos) : 3;
+        const data = {
+            descripcion,
+            creditos: creditosNum,
+            promedio: 0,
+            aprueba: false,
+        };
+        const docRef = await asignaturasRef(uid).add(data);
         const asignatura = {
             id: docRef.id,
-            nombre,
-            profesor,
-            periodo,
-            promedioActual: 0,
+            ...data,
         };
         res.status(201).json({ message: 'Asignatura creada exitosamente', data: asignatura });
     }
@@ -61,10 +60,10 @@ const obtenerAsignaturas = async (req, res) => {
             const data = doc.data();
             return {
                 id: doc.id,
-                nombre: data.nombre,
-                profesor: data.profesor,
-                periodo: data.periodo,
-                promedioActual: data.promedioActual,
+                descripcion: (data.descripcion || data.nombre),
+                creditos: data.creditos || 3,
+                promedio: data.promedio || 0,
+                aprueba: data.aprueba || false,
             };
         });
         res.status(200).json(asignaturas);
@@ -75,6 +74,40 @@ const obtenerAsignaturas = async (req, res) => {
     }
 };
 exports.obtenerAsignaturas = obtenerAsignaturas;
+const obtenerAsignaturaPorId = async (req, res) => {
+    try {
+        const uid = req.user?.uid;
+        const id = paramString(req.params.id);
+        if (!uid) {
+            res.status(401).json({ error: 'Usuario no autenticado' });
+            return;
+        }
+        if (!id) {
+            res.status(400).json({ error: 'ID de asignatura requerido' });
+            return;
+        }
+        const docRef = asignaturasRef(uid).doc(id);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
+            res.status(404).json({ error: 'Asignatura no encontrada' });
+            return;
+        }
+        const data = docSnap.data();
+        const asignatura = {
+            id: docSnap.id,
+            descripcion: (data?.descripcion || data?.nombre),
+            creditos: data?.creditos || 3,
+            promedio: data?.promedio || 0,
+            aprueba: data?.aprueba || false,
+        };
+        res.status(200).json(asignatura);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener la asignatura' });
+    }
+};
+exports.obtenerAsignaturaPorId = obtenerAsignaturaPorId;
 const eliminarAsignatura = async (req, res) => {
     try {
         const uid = req.user?.uid;
@@ -103,4 +136,44 @@ const eliminarAsignatura = async (req, res) => {
     }
 };
 exports.eliminarAsignatura = eliminarAsignatura;
-//# sourceMappingURL=asignaturaController.js.map
+const actualizarAsignatura = async (req, res) => {
+    try {
+        const uid = req.user?.uid;
+        const id = paramString(req.params.id);
+        if (!uid) {
+            res.status(401).json({ error: 'Usuario no autenticado' });
+            return;
+        }
+        if (!id) {
+            res.status(400).json({ error: 'ID de asignatura requerido' });
+            return;
+        }
+        const { descripcion, creditos, promedio, aprueba } = req.body;
+        const updates = {};
+        if (descripcion !== undefined)
+            updates.descripcion = descripcion;
+        if (creditos !== undefined)
+            updates.creditos = Number(creditos);
+        if (promedio !== undefined)
+            updates.promedio = Number(promedio);
+        if (aprueba !== undefined)
+            updates.aprueba = Boolean(aprueba);
+        if (Object.keys(updates).length === 0) {
+            res.status(400).json({ error: 'No se proporcionaron campos para actualizar' });
+            return;
+        }
+        const docRef = asignaturasRef(uid).doc(id);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
+            res.status(404).json({ error: 'Asignatura no encontrada' });
+            return;
+        }
+        await docRef.update(updates);
+        res.status(200).json({ message: 'Asignatura actualizada exitosamente', data: updates });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar la asignatura' });
+    }
+};
+exports.actualizarAsignatura = actualizarAsignatura;

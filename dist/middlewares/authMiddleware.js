@@ -26,4 +26,3 @@ const authMiddleware = async (req, res, next) => {
 exports.authMiddleware = authMiddleware;
 /** @deprecated Usar authMiddleware */
 exports.verificarToken = exports.authMiddleware;
-//# sourceMappingURL=authMiddleware.js.map
